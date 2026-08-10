@@ -1064,6 +1064,7 @@ class ModelBuilder:
 
         # triangles
         self.tri_indices: list[tuple[int, int, int]] = []
+        self.tri_color: list[Vec3 | None] = []
         """Triangle connectivity accumulated for :attr:`Model.tri_indices`."""
         self.tri_poses: list[Mat22] = []
         """Triangle rest-pose 2x2 matrices accumulated for :attr:`Model.tri_poses`."""
@@ -3425,6 +3426,7 @@ class ModelBuilder:
             self.edge_indices.extend(edge_indices.tolist())
         if builder.tri_count:
             self.tri_indices.extend((np.array(builder.tri_indices, dtype=np.int32) + start_particle_idx).tolist())
+            self.tri_color.extend(builder.tri_color)
         if builder.tet_count:
             self.tet_indices.extend((np.array(builder.tet_indices, dtype=np.int32) + start_particle_idx).tolist())
 
@@ -7971,6 +7973,7 @@ class ModelBuilder:
         tri_kd: float | None = None,
         tri_drag: float | None = None,
         tri_lift: float | None = None,
+        color: Vec3 | None = None,
         custom_attributes: dict[str, Any] | None = None,
     ) -> float:
         """Adds a triangular FEM element between three particles in the system.
@@ -8029,6 +8032,7 @@ class ModelBuilder:
             inv_D = np.linalg.inv(D)
 
             self.tri_indices.append((i, j, k))
+            self.tri_color.append(color)
             self.tri_poses.append(inv_D.tolist())
             self.tri_activations.append(0.0)
             self.tri_materials.append((tri_ke, tri_ka, tri_kd, tri_drag, tri_lift))
@@ -8056,6 +8060,7 @@ class ModelBuilder:
         tri_kd: list[float] | None = None,
         tri_drag: list[float] | None = None,
         tri_lift: list[float] | None = None,
+        color: Vec3 | None = None,
         custom_attributes: dict[str, Any] | None = None,
     ) -> list[float]:
         """Adds triangular FEM elements between groups of three particles in the system.
@@ -8122,6 +8127,7 @@ class ModelBuilder:
 
         tri_start = len(self.tri_indices)
         self.tri_indices.extend(inds.tolist())
+        self.tri_color.extend([color] * len(inds))
         self.tri_poses.extend(inv_D[valid_inds].tolist())
         self.tri_activations.extend([0.0] * len(valid_inds))
 
@@ -8552,6 +8558,7 @@ class ModelBuilder:
         custom_attributes_triangles: dict[str, Any] | None = None,
         custom_attributes_springs: dict[str, Any] | None = None,
         validate_mesh: bool = False,
+        color: Vec3 | None = None,
         label: str | None = None,
     ) -> None:
         """Helper to create a cloth model from a regular triangle mesh
@@ -8639,6 +8646,7 @@ class ModelBuilder:
             tri_kd=[tri_kd] * num_tris,
             tri_drag=[tri_drag] * num_tris,
             tri_lift=[tri_lift] * num_tris,
+            color=color,
             custom_attributes=custom_attributes_triangles,
         )
         for t in range(num_tris):
@@ -8816,6 +8824,7 @@ class ModelBuilder:
         edge_ke: float = 0.0,
         edge_kd: float = 0.0,
         particle_radius: float | None = None,
+        color: Vec3 | None = None,
         label: str | None = None,
     ):
         """Helper to create a rectangular tetrahedral FEM grid
@@ -8950,6 +8959,7 @@ class ModelBuilder:
                 tri_kd=tri_kd,
                 tri_drag=tri_drag,
                 tri_lift=tri_lift,
+                color=color,
             )
         end_tri = len(self.tri_indices)
 
@@ -8991,6 +9001,7 @@ class ModelBuilder:
         edge_kd: float = 0.0,
         particle_radius: float | None = None,
         validate_mesh: bool = False,
+        color: Vec3 | None = None,
         label: str | None = None,
     ) -> None:
         """Helper to create a tetrahedral model from an input tetrahedral mesh.
@@ -9176,6 +9187,7 @@ class ModelBuilder:
                 tri_kd=tri_kd,
                 tri_drag=tri_drag,
                 tri_lift=tri_lift,
+                color=color,
                 custom_attributes=tr_custom,
             )
         end_tri = len(self.tri_indices)

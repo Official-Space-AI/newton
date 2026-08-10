@@ -435,6 +435,13 @@ class Model:
         Stored per-element; kernels multiply by rest area internally."""
         self.tri_areas: wp.array[wp.float32] | None = None
         """Triangle element rest areas [m²], shape [tri_count], float."""
+        self.tri_color: wp.array[wp.vec3] | None = None
+        """Triangle element display colors [0, 1], shape [tri_count], vec3.
+
+        ``None`` when no deformable declared one, which is the default and leaves renderers
+        free to pick their own fallback. This is the deformable counterpart of
+        :attr:`shape_color`: a soft body, cloth or rod has no shape index, so renderers cannot
+        reach :attr:`shape_color` for it."""
 
         self.edge_indices: wp.array[wp.int32] | None = None
         """Bending edge indices, shape [edge_count*4], int, each row is [o0, o1, v1, v2], where v1, v2 are on the edge."""
