@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+export PATH="/workspace/.uv-bin:$PATH"
+
 FORK_URL="https://github.com/Official-Space-AI/newton.git"
 EXPECTED_BRANCH="kms8720/deformable-display-color"
 EXPECTED_SHA="bf60f013dd6eacfb260ddf3af34414b755013c76"
@@ -11,7 +13,10 @@ if [[ ! "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
 fi
 
 for command_name in git uv nvidia-smi sha256sum; do
-  command -v "$command_name" >/dev/null
+  if ! command -v "$command_name" >/dev/null; then
+    echo "ERROR: required command is missing: $command_name" >&2
+    exit 127
+  fi
 done
 
 RUN_TAG="newton_3852_${EXPECTED_SHA:0:8}_$(date +%Y%m%d_%H%M%S)"
@@ -413,18 +418,18 @@ try:
     # Builder/Model authoring and partial-white fill.
     author_builder = newton.ModelBuilder()
     author_builder.add_particle(
-        (0.0, 0.0, -2.0),
+        wp.vec3(0.0, 0.0, -2.0),
         wp.vec3(),
         1.0,
         color=(1.0, 0.0, 0.0),
     )
     author_builder.add_particle(
-        (1.0, 0.0, -2.0),
+        wp.vec3(1.0, 0.0, -2.0),
         wp.vec3(),
         1.0,
     )
     author_builder.add_particles(
-        pos=[(2.0, 0.0, -2.0), (3.0, 0.0, -2.0)],
+        pos=[wp.vec3(2.0, 0.0, -2.0), wp.vec3(3.0, 0.0, -2.0)],
         vel=[wp.vec3(), wp.vec3()],
         mass=[1.0, 1.0],
         colors=[(0.0, 1.0, 0.0), None],
@@ -518,7 +523,9 @@ try:
         device=device,
     )
     wp.synchronize_device(device)
-    authored_vertices = gl_vertices.numpy()
+    # Copy immediately: CPU Warp arrays may expose a shared NumPy view, and the
+    # fallback launch below must not overwrite the authored-color evidence.
+    authored_vertices = gl_vertices.numpy().copy()
     vertex_dtype = authored_vertices.dtype
     vertex_stride_bytes = int(vertex_dtype.itemsize)
     vertex_color_offset_bytes = int(vertex_dtype.fields["color"][1])
@@ -548,7 +555,7 @@ try:
         device=device,
     )
     wp.synchronize_device(device)
-    fallback_vertices = gl_vertices.numpy()
+    fallback_vertices = gl_vertices.numpy().copy()
     np.testing.assert_allclose(
         fallback_vertices["color"],
         np.ones((2, 3), dtype=np.float32),
@@ -574,21 +581,21 @@ try:
     target_color = np.asarray((0.25, 0.5, 0.75), dtype=np.float32)
     particle_builder = newton.ModelBuilder()
     particle_builder.add_particle(
-        (2.0, 0.0, -2.0),
+        wp.vec3(2.0, 0.0, -2.0),
         wp.vec3(),
         1.0,
         radius=0.25,
         color=(1.0, 0.0, 0.0),
     )
     particle_builder.add_particle(
-        (0.0, 0.0, -2.0),
+        wp.vec3(0.0, 0.0, -2.0),
         wp.vec3(),
         1.0,
         radius=0.75,
         color=tuple(target_color),
     )
     particle_builder.add_particle(
-        (-2.0, 0.0, -2.0),
+        wp.vec3(-2.0, 0.0, -2.0),
         wp.vec3(),
         1.0,
         radius=0.25,
@@ -622,9 +629,9 @@ try:
     triangle_builder = newton.ModelBuilder()
     triangle_builder.add_particles(
         pos=[
-            (-1.0, -1.0, -2.0),
-            (1.0, -1.0, -2.0),
-            (0.0, 1.0, -2.0),
+            wp.vec3(-1.0, -1.0, -2.0),
+            wp.vec3(1.0, -1.0, -2.0),
+            wp.vec3(0.0, 1.0, -2.0),
         ],
         vel=[wp.vec3()] * 3,
         mass=[1.0] * 3,
@@ -674,7 +681,7 @@ try:
     # Existing no-authored-color white fallback: particle and triangle.
     uncolored_particle_builder = newton.ModelBuilder()
     uncolored_particle_builder.add_particle(
-        (0.0, 0.0, -2.0),
+        wp.vec3(0.0, 0.0, -2.0),
         wp.vec3(),
         1.0,
         radius=0.5,
@@ -704,9 +711,9 @@ try:
     uncolored_triangle_builder = newton.ModelBuilder()
     uncolored_triangle_builder.add_particles(
         pos=[
-            (-1.0, -1.0, -2.0),
-            (1.0, -1.0, -2.0),
-            (0.0, 1.0, -2.0),
+            wp.vec3(-1.0, -1.0, -2.0),
+            wp.vec3(1.0, -1.0, -2.0),
+            wp.vec3(0.0, 1.0, -2.0),
         ],
         vel=[wp.vec3()] * 3,
         mass=[1.0] * 3,
@@ -745,9 +752,9 @@ try:
         blueprint = newton.ModelBuilder()
         blueprint.add_particles(
             pos=[
-                (-1.0, -1.0, -2.0),
-                (1.0, -1.0, -2.0),
-                (0.0, 1.0, -2.0),
+                wp.vec3(-1.0, -1.0, -2.0),
+                wp.vec3(1.0, -1.0, -2.0),
+                wp.vec3(0.0, 1.0, -2.0),
             ],
             vel=[wp.vec3()] * 3,
             mass=[1.0] * 3,
@@ -829,7 +836,7 @@ try:
     active = int(newton.ParticleFlags.ACTIVE)
     compact_builder = newton.ModelBuilder()
     compact_builder.add_particles(
-        pos=[(float(index), 0.0, 0.0) for index in range(5)],
+        pos=[wp.vec3(float(index), 0.0, 0.0) for index in range(5)],
         vel=[wp.vec3()] * 5,
         mass=[1.0] * 5,
         radius=[0.1, 0.2, 0.3, 0.4, 0.5],
