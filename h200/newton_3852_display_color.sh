@@ -5,7 +5,7 @@ export PATH="/workspace/.uv-bin:$PATH"
 
 FORK_URL="https://github.com/Official-Space-AI/newton.git"
 EXPECTED_BRANCH="kms8720/deformable-display-color"
-EXPECTED_SHA="bf60f013dd6eacfb260ddf3af34414b755013c76"
+EXPECTED_SHA="dd617b0e6bcf9c79ac2b1f8c8f8ff24bb5c3206f"
 
 if [[ ! "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   echo "ERROR: EXPECTED_SHA must be a full 40-character lowercase commit SHA." >&2
@@ -460,6 +460,44 @@ try:
     artifact_arrays["builder_partial_colors"] = actual_partial
     check("builder_partial_white_fill")
 
+    malformed_builder = newton.ModelBuilder()
+    malformed_builder.add_particles(
+        pos=[wp.vec3(0.0, 0.0, 0.0), wp.vec3(1.0, 0.0, 0.0)],
+        vel=[wp.vec3(), wp.vec3()],
+        mass=[1.0, 1.0],
+        colors=[(1.0, 0.0, 0.0), (0.0, 1.0, 0.0)],
+    )
+    malformed_builder.particle_display_color.pop()
+    try:
+        malformed_builder.finalize(device=device)
+    except ValueError as exc:
+        validation_message = str(exc)
+        expected_fragments = (
+            "particle_display_color",
+            "length 1",
+            "expected 2",
+            "particle_count",
+        )
+        if not all(fragment in validation_message for fragment in expected_fragments):
+            raise AssertionError(
+                f"unexpected structure-validation error: {validation_message}"
+            ) from exc
+    else:
+        raise AssertionError(
+            "finalize accepted mismatched particle_display_color length"
+        )
+    observed["builder_structure_validation"] = {
+        "failure_type": "ValueError",
+        "message": validation_message,
+        "particle_count": 2,
+        "display_color_count": 1,
+        "requested_device": device.alias,
+    }
+    artifact_arrays["builder_structure_validation_counts"] = np.asarray(
+        [2, 1], dtype=np.int32
+    )
+    check("builder_rejects_mismatched_display_color_length")
+
     # High-level deformable helper propagation.
     cloth_color = np.asarray((0.2, 0.4, 0.6), dtype=np.float32)
     cloth_builder = newton.ModelBuilder()
@@ -889,7 +927,7 @@ try:
         raise AssertionError(
             f"expected 9 camera launches, got {launch_counter['count']}"
         )
-    if not checks or not all(checks.values()):
+    if len(checks) != 17 or not all(checks.values()):
         raise AssertionError(f"incomplete checks: {checks}")
 
     artifact_values = {
