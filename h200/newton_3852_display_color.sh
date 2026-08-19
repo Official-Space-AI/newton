@@ -5,7 +5,7 @@ export PATH="/workspace/.uv-bin:$PATH"
 
 FORK_URL="https://github.com/Official-Space-AI/newton.git"
 EXPECTED_BRANCH="kms8720/deformable-display-color"
-EXPECTED_SHA="dd617b0e6bcf9c79ac2b1f8c8f8ff24bb5c3206f"
+EXPECTED_SHA="0ec11e6277f7f2282e5e2a4b87b8a05f18f92d50"
 
 if [[ ! "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   echo "ERROR: EXPECTED_SHA must be a full 40-character lowercase commit SHA." >&2
@@ -664,12 +664,14 @@ try:
         artifact_arrays[f"{label}_rgba"] = rendered["rgba"]
 
     # Triangle: interpolate raw display values first, then decode once.
+    # Scalene, so the sampled point lands on barycentric weights (0.2, 0.3, 0.5)
+    # and every permutation of the three weights yields a different pixel.
     triangle_builder = newton.ModelBuilder()
     triangle_builder.add_particles(
         pos=[
-            wp.vec3(-1.0, -1.0, -2.0),
-            wp.vec3(1.0, -1.0, -2.0),
-            wp.vec3(0.0, 1.0, -2.0),
+            wp.vec3(-1.0, 0.0, -2.0),
+            wp.vec3(0.0, -1.0, -2.0),
+            wp.vec3(0.4, 0.6, -2.0),
         ],
         vel=[wp.vec3()] * 3,
         mass=[1.0] * 3,
@@ -684,7 +686,7 @@ try:
     triangle_model = triangle_builder.finalize(device=device)
     require_model_device(triangle_model, "triangle_model")
 
-    display_mix = np.asarray((0.25, 0.25, 0.5), dtype=np.float32)
+    display_mix = np.asarray((0.2, 0.3, 0.5), dtype=np.float32)
     linear_mix = srgb_to_linear_literal(display_mix)
 
     for space_name, output_space, expected_rgb in (
